@@ -84,7 +84,91 @@ app.post(
   }
 );
 
+app.get("/api/images/next-unlabeled", async (req, res) => {
+  try {
+    const doc = await Image.findOne({ label: null })
+      .sort({ createdAt: 1 })
+      .lean();
+    if (!doc) return res.status(404).json({ message: "No unlabeled images" });
+    res.json({
+      id: doc._id,
+      url: doc.url,
+    });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
 
+app.post("/api/images/:id/label", async (req, res) => {
+  try {
+    const id = req.params.id;
+    const { isPencil } = req.body;
+    if (typeof isPencil !== "boolean")
+      return res.status(400).json({ error: "isPencil must be boolean" });
+
+    const label = isPencil ? "pencil" : "not_pencil";
+    const updated = await Image.findByIdAndUpdate(id, { label }, { new: true });
+    if (!updated) return res.status(404).json({ error: "Image not found" });
+    res.json({ ok: true, id: updated._id, label: updated.label });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+app.post("/api/classify", upload.single("image"), async (req, res) => {
+  try {
+    await ensureMobilenet();
+    const f = req.file;
+    if (!f) return res.status(400).json({ error: "No image uploaded" });
+
+    const queryEmbedding = await embedImageFile(f.path);
+
+    const labeled = await Image.find({
+      label: { $in: ["pencil", "not_pencil"] },
+      embedding: { $exists: true },
+    })
+      .select({ embedding: 1, label: 1, url: 1 })
+      .lean();
+
+    if (labeled.length === 0) {
+      return res.status(400).json({
+        error: "No labeled data yet. Please label some images first.",
+      });
+    }
+
+    const k = Math.min(5, labeled.length);
+    const scored = labeled
+      .map((doc) => {
+        const sim = cosineSimilarity(queryEmbedding, doc.embedding);
+        return { ...doc, sim };
+      })
+      .sort((a, b) => b.sim - a.sim)
+      .slice(0, k);
+
+    const sumSim = scored.reduce((s, x) => s + Math.max(0, x.sim), 0) || 1e-6;
+    const pencilScore =
+      scored
+        .filter((x) => x.label === "pencil")
+        .reduce((s, x) => s + Math.max(0, x.sim), 0) / sumSim;
+
+    const threshold = 0.5;
+    const hasPencil = pencilScore >= threshold;
+
+    res.json({
+      hasPencil,
+      score: pencilScore,
+      k,
+      neighbors: scored.map((x) => ({
+        url: x.url,
+        label: x.label,
+        similarity: x.sim,
+      })),
+    });
+  } catch (e) {
+    console.error(e);
+    res.status(500).json({ error: e.message || "Classification failed" });
+  }
+});
 
 (async () => {
   try {

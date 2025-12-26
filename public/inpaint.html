@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="ru">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Inpaint (minimal work / white pixels)</title>
+    <link rel="stylesheet" href="styles.css" />
+    <style>
+      .canvas-wrap {
+        position: relative;
+        width: 256px;
+        height: 256px;
+        border: 1px solid #ccc;
+        image-rendering: pixelated;
+      }
+      #imageCanvas,
+      #maskCanvas {
+        position: absolute;
+        left: 0;
+        top: 0;
+        width: 256px;
+        height: 256px;
+      }
+      #maskCanvas {
+        cursor: crosshair;
+      }
+      .controls {
+        display: flex;
+        gap: 12px;
+        flex-wrap: wrap;
+        margin-top: 12px;
+        align-items: center;
+      }
+      .controls > * {
+        margin: 4px 0;
+      }
+      .preview {
+        margin-top: 16px;
+      }
+      .small {
+        font-size: 12px;
+        opacity: 0.8;
+      }
+    </style>
+  </head>
+  <body>
+    <main class="container">
+      <h1>Inpaint - 3×3, frame 256×256</h1>
+
+      <div class="controls">
+        <label>
+          Upload Image:
+          <input type="file" id="fileInput" accept="image/*" />
+        </label>
+
+        <label>
+          Brush Size:
+          <input
+            type="range"
+            id="brushSize"
+            min="3"
+            max="48"
+            step="1"
+            value="16"
+          />
+          <span id="brushSizeValue">16</span> px
+        </label>
+
+        <label>
+          Type of Action:
+          <select id="modeSelect">
+            <option value="draw">Draw Mask</option>
+            <option value="erase">Erase Mask</option>
+          </select>
+        </label>
+
+        <label>
+          Algorithm:
+          <select id="algoSelect">
+            <option value="binary">White Pixels (Sharp)</option>
+            <option value="harmonic">Harmonic (Blurred)</option>
+          </select>
+        </label>
+
+        <button id="clearMaskBtn">Clear Mask</button>
+        <button id="inpaintBtn">Inpaint</button>
+      </div>
+
+      <p class="small">
+        Draw the mask in red on the top canvas. "White Pixels" is a binary
+        inpainting with a 3×3 neighborhood (4-connectivity): white spreads
+        inside
+      </p>
+
+      <div class="canvas-wrap">
+        <canvas id="imageCanvas" width="256" height="256"></canvas>
+        <canvas id="maskCanvas" width="256" height="256"></canvas>
+      </div>
+
+      <div class="preview">
+        <h2>Result</h2>
+        <canvas id="resultCanvas" width="256" height="256"></canvas>
+      </div>
+    </main>
+
+    <script src="inpaint.js"></script>
+  </body>
+</html>
